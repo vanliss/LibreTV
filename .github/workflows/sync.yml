@@ -1,36 +1,36 @@
-name: Upstream Sync
-
-permissions:
-  contents: write
+name: Sync upstream LibreSpark/LibreTV
 
 on:
   schedule:
-    - cron: "0 4 * * *" # At 12PM UTC+8
-  workflow_dispatch:
+    - cron: '0 3 * * *'     # 每天凌晨3点自动同步
+  workflow_dispatch:         # 手动触发
 
 jobs:
-  sync_latest_from_upstream:
-    name: Sync latest commits from upstream repo
+  sync:
     runs-on: ubuntu-latest
-    if: ${{ github.event.repository.fork }}
-
     steps:
-      # Step 1: run a standard checkout action
-      - name: Checkout target repo
+      - name: Checkout your fork
         uses: actions/checkout@v4
-
-      # Step 2: run the sync action
-      - name: Sync upstream changes
-        id: sync
-        uses: aormsby/Fork-Sync-With-Upstream-action@v3.4.1
         with:
-          upstream_sync_repo: LibreSpark/LibreTV
-          upstream_sync_branch: main
-          target_sync_branch: main
-          target_repo_token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
 
-      - name: Sync check
-        if: failure()
+      - name: Set up git
         run: |
-          echo "[Error] Due to a change in the workflow file of the upstream repository, GitHub has automatically suspended the scheduled automatic update. You need to manually sync your fork."
-          exit 1
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote and fetch
+        run: |
+          git remote add upstream https://github.com/LibreSpark/LibreTV.git
+          git fetch upstream
+
+      - name: Rebase or merge upstream/main
+        run: |
+          git checkout main
+          git rebase upstream/main || git merge upstream/main
+
+      - name: Push changes back to your fork
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git main
